@@ -11,35 +11,36 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class BibleViewModel @Inject constructor(private val bibleRepository: BibleRepository) :ViewModel() {
+class BibleViewModel @Inject constructor(private val bibleRepository: BibleRepository) : ViewModel() {
 
     private val _state = MutableStateFlow<BibleUIState>(BibleUIState.Loading)
-     val state = _state.asStateFlow()
+    val state = _state.asStateFlow()
 
+    init {
+        // Initial fetch when ViewModel is created
+        fetchVerses("john 3:16")
+    }
 
-    fun fetchVerses(query:String){
+    fun fetchVerses(query: String) {
         viewModelScope.launch {
             _state.value = BibleUIState.Loading
-           val result =  bibleRepository.getVerses(query)
+            val result = bibleRepository.getVerses(query)
             when {
                 result.isSuccess -> {
                     val data = result.getOrNull()
-                 _state.value = BibleUIState.Success(data)
+                    _state.value = BibleUIState.Success(data)
                 }
                 result.isFailure -> {
                     val error = result.exceptionOrNull()
-               _state.value = BibleUIState.Failure(error?.message ?: "Unknown error")
+                    _state.value = BibleUIState.Failure(error?.message ?: "Unknown error")
                 }
             }
-
         }
     }
-
-
-
 }
+
 sealed interface BibleUIState {
     object Loading : BibleUIState
     data class Success(val apiResponse: BibleApiResponse?) : BibleUIState
-    data class Failure(val message:String) : BibleUIState
+    data class Failure(val message: String) : BibleUIState
 }
