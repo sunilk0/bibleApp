@@ -23,9 +23,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -46,7 +43,7 @@ fun BibleScreen(
     navController: NavHostController
 ) {
     val state by bibleViewModel.state.collectAsState()
-    var query by remember { mutableStateOf("john 3:16") }
+    val searchQuery by bibleViewModel.searchQuery.collectAsState()
     val context = LocalContext.current
 
     Box(
@@ -82,8 +79,8 @@ fun BibleScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     OutlinedTextField(
                         modifier = Modifier.fillMaxWidth(),
-                        value = query,
-                        onValueChange = { query = it },
+                        value = searchQuery,
+                        onValueChange = { bibleViewModel.updateSearchQuery(it) },
                         label = { Text("Enter verse eg: John 3:16") },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = GradientStart,
@@ -94,10 +91,10 @@ fun BibleScreen(
 
                     Button(
                         onClick = {
-                            if (query.isEmpty()) {
+                            if (searchQuery.isEmpty()) {
                                 Toast.makeText(context, "Enter verse or chapter", Toast.LENGTH_SHORT).show()
                             } else {
-                                bibleViewModel.fetchVerses(query)
+                                bibleViewModel.fetchVerses(searchQuery)
                             }
                         },
                         modifier = Modifier

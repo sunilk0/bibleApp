@@ -1,5 +1,6 @@
 package com.application.bibileapp.ui.viewmodel
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.application.bibileapp.data.model.BibleApiResponse
@@ -11,14 +12,32 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class BibleViewModel @Inject constructor(private val bibleRepository: BibleRepository) : ViewModel() {
+class BibleViewModel @Inject constructor(
+    private val bibleRepository: BibleRepository,
+    private val savedStateHandle: SavedStateHandle
+) : ViewModel() {
 
     private val _state = MutableStateFlow<BibleUIState>(BibleUIState.Loading)
     val state = _state.asStateFlow()
 
+    private val _searchQuery = MutableStateFlow(savedStateHandle.get<String>("search_query") ?: "john 3:16")
+    val searchQuery = _searchQuery.asStateFlow()
+
     init {
-        // Initial fetch when ViewModel is created
-        fetchVerses("john 3:16")
+        val reference: String? = savedStateHandle["reference"]
+        if (reference != null) {
+            // If we have a reference, fetch the chapter
+            val chapterQuery = reference.substringBeforeLast(":")
+            fetchVerses(chapterQuery)
+        } else {
+            // Initial fetch for home screen using the saved or default query
+            fetchVerses(_searchQuery.value)
+        }
+    }
+
+    fun updateSearchQuery(query: String) {
+        _searchQuery.value = query
+        savedStateHandle["search_query"] = query
     }
 
     fun fetchVerses(query: String) {
