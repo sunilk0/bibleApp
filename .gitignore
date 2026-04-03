@@ -9,7 +9,7 @@
 local.properties
 
 # Android Studio / IntelliJ
-# .idea/  <-- Removed this to allow tracking .idea files
+*.idea/  <-- Removed this to allow tracking .idea files
 *.ipr
 *.iws
 
