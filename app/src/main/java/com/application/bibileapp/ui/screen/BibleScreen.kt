@@ -29,11 +29,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import com.application.bibileapp.ui.viewmodel.BibleUIState
+import com.application.bibileapp.data.model.BibleApiResponse
+import com.application.bibileapp.ui.viewmodel.BibleIntent
 import com.application.bibileapp.ui.viewmodel.BibleViewModel
+import com.application.bibileapp.ui.viewmodel.BibleViewState
+import com.application.bibileapp.ui.viewmodel.DataState
+import com.application.bibileapp.utils.theme.BibleAppTheme
 import com.application.bibileapp.utils.theme.GradientEnd
 import com.application.bibileapp.utils.theme.GradientStart
 
@@ -42,8 +47,23 @@ fun BibleScreen(
     bibleViewModel: BibleViewModel,
     navController: NavHostController
 ) {
-    val state by bibleViewModel.state.collectAsState()
-    val searchQuery by bibleViewModel.searchQuery.collectAsState()
+    val uiState by bibleViewModel.uiState.collectAsState()
+    
+    BibleScreenContent(
+        uiState = uiState,
+        onIntent = bibleViewModel::onIntent,
+        onNavigateToDetail = { reference ->
+            navController.navigate("detail/$reference")
+        }
+    )
+}
+
+@Composable
+fun BibleScreenContent(
+    uiState: BibleViewState,
+    onIntent: (BibleIntent) -> Unit,
+    onNavigateToDetail: (String) -> Unit
+) {
     val context = LocalContext.current
 
     Box(
@@ -79,8 +99,8 @@ fun BibleScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     OutlinedTextField(
                         modifier = Modifier.fillMaxWidth(),
-                        value = searchQuery,
-                        onValueChange = { bibleViewModel.updateSearchQuery(it) },
+                        value = uiState.searchQuery,
+                        onValueChange = { onIntent(BibleIntent.UpdateSearchQuery(it)) },
                         label = { Text("Enter verse eg: John 3:16") },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = GradientStart,
@@ -91,10 +111,10 @@ fun BibleScreen(
 
                     Button(
                         onClick = {
-                            if (searchQuery.isEmpty()) {
+                            if (uiState.searchQuery.isEmpty()) {
                                 Toast.makeText(context, "Enter verse or chapter", Toast.LENGTH_SHORT).show()
                             } else {
-                                bibleViewModel.fetchVerses(searchQuery)
+                                onIntent(BibleIntent.SearchVerse(uiState.searchQuery))
                             }
                         },
                         modifier = Modifier
@@ -108,14 +128,14 @@ fun BibleScreen(
                 }
             }
 
-            when (state) {
-                is BibleUIState.Loading -> {
+            when (val dataState = uiState.dataState) {
+                is DataState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = Color.White)
                     }
                 }
-                is BibleUIState.Success -> {
-                    val response = (state as BibleUIState.Success).apiResponse
+                is DataState.Success -> {
+                    val response = dataState.apiResponse
                     val items = response?.verses ?: emptyList()
 
                     Text(
@@ -136,7 +156,7 @@ fun BibleScreen(
                             Card(
                                 onClick = {
                                     response?.reference?.let { ref ->
-                                        navController.navigate("detail/$ref")
+                                        onNavigateToDetail(ref)
                                     }
                                 },
                                 modifier = Modifier
@@ -155,14 +175,53 @@ fun BibleScreen(
                         }
                     }
                 }
-                is BibleUIState.Failure -> {
+                is DataState.Failure -> {
                     Text(
-                        (state as BibleUIState.Failure).message,
+                        dataState.message,
                         color = Color.Red,
                         modifier = Modifier.padding(16.dp)
                     )
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun BibleScreenPreview() {
+    BibleAppTheme {
+        BibleScreenContent(
+            uiState = BibleViewState(
+                searchQuery = "John 3:16",
+                dataState = DataState.Success(
+                    apiResponse = BibleApiResponse(
+                        reference = "John 3:16",
+                        verses = emptyList(), // Add mock verses if needed
+                        text = "For God so loved the world...",
+                        translationID = "KJV",
+                        translationame = "King James Version",
+                        translation_note = ""
+                    )
+                )
+            ),
+            onIntent = {},
+            onNavigateToDetail = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun BibleScreenLoadingPreview() {
+    BibleAppTheme {
+        BibleScreenContent(
+            uiState = BibleViewState(
+                searchQuery = "John 3:16",
+                dataState = DataState.Loading
+            ),
+            onIntent = {},
+            onNavigateToDetail = {}
+        )
     }
 }

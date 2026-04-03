@@ -1,5 +1,6 @@
 package com.application.bibileapp.ui.screen
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -29,10 +30,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import com.application.bibileapp.ui.viewmodel.BibleUIState
 import com.application.bibileapp.ui.viewmodel.BibleViewModel
+import com.application.bibileapp.ui.viewmodel.DataState
 import com.application.bibileapp.utils.theme.GradientEnd
 import com.application.bibileapp.utils.theme.GradientStart
 
@@ -43,7 +45,8 @@ fun BibleDetailScreen(
     bibleViewModel: BibleViewModel,
     navController: NavHostController
 ) {
-    val state by bibleViewModel.state.collectAsState()
+    val uiState by bibleViewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -68,14 +71,14 @@ fun BibleDetailScreen(
                     )
                 )
         ) {
-            when (state) {
-                is BibleUIState.Loading -> {
+            when (val dataState = uiState.dataState) {
+                is DataState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = Color.White)
                     }
                 }
-                is BibleUIState.Success -> {
-                    val response = (state as BibleUIState.Success).apiResponse
+                is DataState.Success -> {
+                    val response = dataState.apiResponse
                     val items = response?.verses ?: emptyList()
 
                     LazyColumn(
@@ -84,6 +87,15 @@ fun BibleDetailScreen(
                     ) {
                         items(items) { item ->
                             Card(
+                                onClick = {
+                                    val sendIntent: Intent = Intent().apply {
+                                        action = Intent.ACTION_SEND
+                                        putExtra(Intent.EXTRA_TEXT, "${item.verse} ${item.text}\n\nShared from Bible App")
+                                        type = "text/plain"
+                                    }
+                                    val shareIntent = Intent.createChooser(sendIntent, null)
+                                    context.startActivity(shareIntent)
+                                },
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 4.dp),
@@ -100,9 +112,9 @@ fun BibleDetailScreen(
                         }
                     }
                 }
-                is BibleUIState.Failure -> {
+                is DataState.Failure -> {
                     Text(
-                        (state as BibleUIState.Failure).message,
+                        dataState.message,
                         color = Color.Red,
                         modifier = Modifier.padding(16.dp)
                     )

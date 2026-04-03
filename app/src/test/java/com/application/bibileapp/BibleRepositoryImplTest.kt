@@ -1,9 +1,10 @@
 @file:OptIn(ExperimentalCoroutinesApi::class)
 
-package com.application.bibileapp.data.repository
+package com.application.bibileapp
 
 import com.application.bibileapp.data.model.BibleApiResponse
 import com.application.bibileapp.data.network.BibleApiService
+import com.application.bibileapp.data.repository.BibleRepositoryImpl
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk

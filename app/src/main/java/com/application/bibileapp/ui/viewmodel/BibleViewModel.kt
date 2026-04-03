@@ -8,6 +8,7 @@ import com.application.bibileapp.data.repository.BibleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -17,49 +18,65 @@ class BibleViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow<BibleUIState>(BibleUIState.Loading)
-    val state = _state.asStateFlow()
-
-    private val _searchQuery = MutableStateFlow(savedStateHandle.get<String>("search_query") ?: "john 3:16")
-    val searchQuery = _searchQuery.asStateFlow()
+    private val _uiState = MutableStateFlow(BibleViewState())
+    val uiState = _uiState.asStateFlow()
 
     init {
+        val savedQuery = savedStateHandle.get<String>("search_query") ?: "john 3:16"
+        _uiState.update { it.copy(searchQuery = savedQuery) }
+
         val reference: String? = savedStateHandle["reference"]
         if (reference != null) {
-            // If we have a reference, fetch the chapter
-            val chapterQuery = reference.substringBeforeLast(":")
-            fetchVerses(chapterQuery)
+            onIntent(BibleIntent.LoadChapter(reference))
         } else {
-            // Initial fetch for home screen using the saved or default query
-            fetchVerses(_searchQuery.value)
+            onIntent(BibleIntent.SearchVerse(savedQuery))
         }
     }
 
-    fun updateSearchQuery(query: String) {
-        _searchQuery.value = query
-        savedStateHandle["search_query"] = query
+    fun onIntent(intent: BibleIntent) {
+        when (intent) {
+            is BibleIntent.UpdateSearchQuery -> {
+                _uiState.update { it.copy(searchQuery = intent.query) }
+                savedStateHandle["search_query"] = intent.query
+            }
+            is BibleIntent.SearchVerse -> {
+                fetchVerses(intent.query)
+            }
+            is BibleIntent.LoadChapter -> {
+                val chapterQuery = intent.reference.substringBeforeLast(":")
+                fetchVerses(chapterQuery)
+            }
+        }
     }
 
-    fun fetchVerses(query: String) {
+    private fun fetchVerses(query: String) {
         viewModelScope.launch {
-            _state.value = BibleUIState.Loading
+            _uiState.update { it.copy(dataState = DataState.Loading) }
             val result = bibleRepository.getVerses(query)
-            when {
-                result.isSuccess -> {
-                    val data = result.getOrNull()
-                    _state.value = BibleUIState.Success(data)
-                }
-                result.isFailure -> {
-                    val error = result.exceptionOrNull()
-                    _state.value = BibleUIState.Failure(error?.message ?: "Unknown error")
-                }
+            result.onSuccess { data ->
+                _uiState.update { it.copy(dataState = DataState.Success(data)) }
+            }.onFailure { error ->
+                _uiState.update { it.copy(dataState = DataState.Failure(error.message ?: "Unknown error")) }
             }
         }
     }
 }
 
-sealed interface BibleUIState {
-    object Loading : BibleUIState
-    data class Success(val apiResponse: BibleApiResponse?) : BibleUIState
-    data class Failure(val message: String) : BibleUIState
+// MVI State
+data class BibleViewState(
+    val searchQuery: String = "",
+    val dataState: DataState = DataState.Loading
+)
+
+sealed interface DataState {
+    object Loading : DataState
+    data class Success(val apiResponse: BibleApiResponse?) : DataState
+    data class Failure(val message: String) : DataState
+}
+
+// MVI Intents
+sealed class BibleIntent {
+    data class UpdateSearchQuery(val query: String) : BibleIntent()
+    data class SearchVerse(val query: String) : BibleIntent()
+    data class LoadChapter(val reference: String) : BibleIntent()
 }
